@@ -23,7 +23,7 @@ Die Kryptografie macht dein vorhandenes **GnuPG**; OpenPGPMail ruft `gpg` nur al
 
 ## Bauen, selbst signieren, installieren
 ```bash
-git clone <dieses Repository> && cd OpenPGPMail
+git clone https://github.com/mxmlnbln/OpenPGPMail.git && cd OpenPGPMail
 DEVELOPMENT_TEAM=<DEINE_TEAM_ID> scripts/build-and-install.sh
 ```
 Die Team-ID findest du in Xcode unter Einstellungen → Accounts → dein Team, oder im Apple-Developer-Portal unter „Membership“.
