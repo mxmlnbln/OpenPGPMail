@@ -1,0 +1,84 @@
+name: OpenPGPMail
+options:
+  bundleIdPrefix: org.openpgpmail
+  deploymentTarget: { macOS: "13.0" }
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+packages:
+  OpenPGPMail: { path: . }
+targets:
+  OpenPGPMailApp:
+    type: application
+    platform: macOS
+    sources: [App]
+    dependencies:
+      - package: OpenPGPMail
+        product: PGPMailCore
+      - target: MailExtension
+        embed: true
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: OpenPGPMail
+        LSApplicationCategoryType: public.app-category.productivity
+        CFBundleURLTypes:
+          - CFBundleURLName: org.openpgpmail.app
+            CFBundleURLSchemes: [openpgpmail]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openpgpmail.app
+        # Host-App bewusst ohne Sandbox: liest gpg-Schluesselliste und schreibt ~/Library/Application Support/OpenPGPMail/config.json
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  GPGHelper:
+    type: xpc-service
+    platform: macOS
+    sources: [Helper]
+    dependencies:
+      - package: OpenPGPMail
+        product: PGPMailXPC
+    info:
+      path: Helper/Info.plist
+      properties:
+        CFBundleDisplayName: GPGHelper
+        XPCService:
+          ServiceType: Application
+    # Bewusst NICHT sandboxed: muss gpg und gpg-agent starten/erreichen koennen.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openpgpmail.app.MailExtension.GPGHelper
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+  MailExtension:
+    type: app-extension
+    platform: macOS
+    sources: [Extension]
+    dependencies:
+      - package: OpenPGPMail
+        product: PGPMailXPC
+      - target: GPGHelper
+        embed: true
+        copy:
+          destination: wrapper
+          subpath: Contents/XPCServices
+    info:
+      path: Extension/Info.plist
+      properties:
+        CFBundleDisplayName: OpenPGPMail
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.email.extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MailExtension
+          NSExtensionAttributes:
+            MEExtensionCapabilities: [MEMessageSecurityHandler]
+    entitlements:
+      path: Extension/MailExtension.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openpgpmail.app.MailExtension
+        ENABLE_HARDENED_RUNTIME: YES
