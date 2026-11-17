@@ -136,3 +136,35 @@ private func home() throws -> (GPG, URL) {
     let st = GPGService.encodingStatus(.init(from: "alice@example.org", recipients: ["alice@example.org"], hiddenRecipients: ["nobody@example.org"], sign: true, encrypt: true), gpg: g, config: cfg)
     #expect(!st.canEncrypt && st.addressesFailingEncryption == ["nobody@example.org"])
 }
+
+@Test func protectedHeaderPartIsNotShownAsAttachment() throws {
+    let inner = """
+    Content-Type: multipart/mixed;
+     boundary="===b=="; protected-headers="v1"
+    Subject: Test
+
+    --===b==
+    Content-Type: text/rfc822-headers
+    Content-Disposition: attachment
+
+    Subject: Test
+
+    --===b==
+    Content-Type: text/plain; charset=utf-8
+
+    Hallo
+    --===b==--
+
+    """
+    let merged = PGPMIME.merge(outerHeaders: [(name: "Subject", value: "Test")], inner: MIMEEntity(string: inner))
+    #expect(merged.contentType?.type == "text/plain")
+    #expect(!merged.serialized.contains("rfc822-headers"))
+    #expect(merged.body.contains("Hallo"))
+
+    // Two real parts remain → stays multipart, header part removed.
+    let withAttachment = inner.replacingOccurrences(of: "--===b==--", with: "--===b==\nContent-Type: application/pdf\n\nxx\n--===b==--")
+    let m2 = PGPMIME.merge(outerHeaders: [], inner: MIMEEntity(string: withAttachment))
+    #expect(m2.contentType?.type == "multipart/mixed")
+    #expect(MIMEEntity(string: m2.serialized).multipartParts()?.count == 2)
+    #expect(!m2.serialized.contains("rfc822-headers"))
+}

@@ -164,13 +164,31 @@ public struct PGPMIME: Sendable {
     }
 
     /// Keeps routing/identity headers of the outer message, takes Content-* from the inner entity.
-    static func merge(outerHeaders: [(name: String, value: String)], inner: MIMEEntity) -> MIMEEntity {
+    static func merge(outerHeaders: [(name: String, value: String)], inner rawInner: MIMEEntity) -> MIMEEntity {
+        let inner = stripProtectedHeaderParts(rawInner)
         let kept = outerHeaders.filter { !$0.name.lowercased().hasPrefix("content-") && $0.name.lowercased() != "mime-version" }
         let innerContent = inner.headers.filter { $0.name.lowercased().hasPrefix("content-") }
         var headers = kept
         headers.append((name: "MIME-Version", value: "1.0"))
         headers += innerContent.isEmpty ? [(name: "Content-Type", value: "text/plain")] : innerContent
         return MIMEEntity(headers: headers, body: inner.body)
+    }
+
+    /// Header protection (`protected-headers="v1"`): some senders put a copy of the headers into an extra part,
+    /// either `text/rfc822-headers` or a "legacy display" `text/plain; protected-headers=...` part. It only
+    /// duplicates the header block; Mail would show it as an attachment or as extra text, so it is removed.
+    static func stripProtectedHeaderParts(_ entity: MIMEEntity) -> MIMEEntity {
+        guard let ct = entity.contentType, ct.type == "multipart/mixed",
+              ct.parameters["protected-headers"] != nil,
+              let boundary = ct.parameters["boundary"], let parts = entity.multipartParts() else { return entity }
+        let kept = parts.filter { part in
+            guard let pct = MIMEEntity(string: part).contentType else { return true }
+            return !(pct.type == "text/rfc822-headers" || (pct.type == "text/plain" && pct.parameters["protected-headers"] != nil))
+        }
+        guard kept.count < parts.count, !kept.isEmpty else { return entity }
+        if kept.count == 1 { return MIMEEntity(string: kept[0]) }
+        let body = kept.map { "--\(boundary)\r\n\($0)\r\n" }.joined() + "--\(boundary)--\r\n"
+        return MIMEEntity(headers: entity.headers, body: body)
     }
 }
 
