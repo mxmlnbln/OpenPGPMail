@@ -1,87 +1,84 @@
 # OpenPGPMail
 
-OpenPGP (PGP/MIME und Inline-PGP) für Apple Mail – als freie, reine Swift-Implementierung auf Basis der öffentlichen
-**MailKit**-API (`MEMessageSecurityHandler`). Kein Mail-Bundle, kein Swizzling, kein Objective-C.
+OpenPGP (PGP/MIME and inline PGP) for Apple Mail: a free, pure Swift implementation built on the public
+**MailKit** API (`MEMessageSecurityHandler`). No Mail bundle, no swizzling, no Objective-C.
 
-Die Kryptografie macht dein vorhandenes **GnuPG**; OpenPGPMail ruft `gpg` nur als Prozess auf und sieht nie eine Passphrase.
+The cryptography is done by your existing **GnuPG**. OpenPGPMail only runs `gpg` as a process and never sees a passphrase.
 
-> **Status:** früher Stand, vom Autor im Alltag getestet (macOS 27, Mail, MacGPG2 2.2). Es gibt **keine fertigen Downloads**:
-> Du baust und signierst die App selbst (siehe unten). Ein kostenloser Apple-Account genügt.
+## Features
+- Decryption and signature verification: PGP/MIME (RFC 3156) and inline PGP
+- Signing and encryption when sending (PGP/MIME; inline PGP automatically for plain-text mails)
+- Key management: import and test a private key, map addresses to keys, warning when a key is missing
+- Recipient keys via Web Key Directory (can be turned off), selectable trust model
+- Setup check in the app (GnuPG, pinentry, extension enabled?)
 
-## Funktionen
-- Entschlüsseln und Signaturprüfung: PGP/MIME (RFC 3156) und Inline-PGP
-- Signieren und Verschlüsseln beim Senden (PGP/MIME; Inline-PGP automatisch für reine Textmails)
-- Schlüsselverwaltung: privaten Schlüssel importieren und testen, Zuordnung Adresse → Schlüssel, Warnung bei fehlendem Schlüssel
-- Empfängerschlüssel per Web Key Directory (abschaltbar), wählbares Vertrauensmodell
-- Einrichtungsprüfung in der App (GnuPG, Pinentry, Erweiterung aktiv?)
-
-## Voraussetzungen
-- macOS 13 oder neuer, Xcode 16 oder neuer
+## Requirements
+- macOS 13 or later, Xcode 16 or later
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
-- GnuPG: [GPG Suite](https://gpgtools.org) (empfohlen) oder `brew install gnupg pinentry-mac`
-- Ein Apple-Account in Xcode (Xcode → Einstellungen → Accounts). Das kostenlose „Personal Team“ reicht.
+- GnuPG: [GPG Suite](https://gpgtools.org) (recommended) or `brew install gnupg pinentry-mac`
+- An Apple account in Xcode (Xcode → Settings → Accounts). The free "Personal Team" is enough.
 
-## Bauen, selbst signieren, installieren
+## Build, self-sign, install
 ```bash
 git clone https://github.com/mxmlnbln/OpenPGPMail.git && cd OpenPGPMail
-DEVELOPMENT_TEAM=<DEINE_TEAM_ID> scripts/build-and-install.sh
+DEVELOPMENT_TEAM=<YOUR_TEAM_ID> scripts/build-and-install.sh
 ```
-Die Team-ID findest du in Xcode unter Einstellungen → Accounts → dein Team, oder im Apple-Developer-Portal unter „Membership“.
-Alternativ: `xcodegen generate`, `OpenPGPMail.xcodeproj` in Xcode öffnen, bei allen drei Targets unter „Signing & Capabilities“ dein Team
-wählen und das Schema `OpenPGPMailApp` bauen; die App nach `~/Applications` oder `/Programme` kopieren und einmal starten.
+You can find your team ID in Xcode under Settings → Accounts → your team, or in the Apple Developer portal under "Membership".
+Alternatively: run `xcodegen generate`, open `OpenPGPMail.xcodeproj` in Xcode, select your team under "Signing & Capabilities"
+for all three targets and build the `OpenPGPMailApp` scheme; copy the app to `~/Applications` or `/Applications` and launch it once.
 
-Danach: **Mail → Einstellungen → Erweiterungen → „OpenPGPMail“ aktivieren**, Mail neu starten. Die App zeigt an, was noch fehlt.
+Then: **Mail → Settings → Extensions → enable "OpenPGPMail"** and restart Mail. The app shows what is still missing.
 
-Hinweise zum Selbst-Signieren:
-- Mit dem kostenlosen Personal Team läuft das Zertifikat nach einiger Zeit ab; dann einfach neu bauen.
-- Trage deine Team-ID nicht ins Repository ein (Umgebungsvariable oder lokale `.xcconfig`).
-- Der XPC-Helper lässt nur Verbindungen von Programmen zu, die mit **derselben Team-ID** signiert sind wie er selbst
-  (wird zur Laufzeit aus der eigenen Signatur gelesen).
+Notes on self-signing:
+- With the free Personal Team the certificate expires after a while; just rebuild.
+- Do not put your team ID into the repository (use the environment variable or a local `.xcconfig`).
+- The XPC helper only accepts connections from programs signed with **the same team ID** as itself
+  (read at runtime from its own signature).
 
-## Aufbau
-- `Sources/PGPMailCore` – MIME-Parser, `gpg`-Wrapper, PGP/MIME- und Inline-Decode/Encode, Schlüssel- und Konfigurationsmodell
-- `Sources/PGPMailXPC` – XPC-Protokoll, Service und Client
-- `Extension/` – MailKit-Erweiterung (sandboxed, ohne Netzwerk)
-- `Helper/` – XPC-Service (nicht sandboxed; startet `gpg`, erreicht `gpg-agent`), eingebettet in die Erweiterung
-- `App/` – Host-App: Schlüssel, Einstellungen, Einrichtungsprüfung
-- `Sources/opgpm` – Debug-CLI: `swift run opgpm decode < nachricht.eml`
-- `tools/make-icon.swift` – erzeugt das App-Icon
+## Structure
+- `Sources/PGPMailCore` – MIME parser, `gpg` wrapper, PGP/MIME and inline decode/encode, key and configuration model
+- `Sources/PGPMailXPC` – XPC protocol, service and client
+- `Extension/` – MailKit extension (sandboxed, no network)
+- `Helper/` – XPC service (not sandboxed; runs `gpg`, reaches `gpg-agent`), embedded in the extension
+- `App/` – host app: keys, settings, setup check
+- `Sources/opgpm` – debug CLI: `swift run opgpm decode < message.eml`
+- `tools/make-icon.swift` – generates the app icon
 
-`swift test` führt die Tests aus – gegen ein temporäres `GNUPGHOME`, dein Schlüsselbund bleibt unberührt.
+`swift test` runs the tests against a temporary `GNUPGHOME`; your keyring is left untouched.
 
-## Sicherheit
-Was die Software tut, um dich zu schützen:
-- **Status und Meldungen getrennt:** gpg schreibt Statuszeilen in eine private Datei (`--status-file`), nie gemischt mit Text aus Nachrichten.
-- **Keine Options-Injection:** Adressen und Fingerabdrücke werden streng geprüft, bevor sie an `gpg` gehen, und stehen hinter `--`.
-- **Signatur ≠ Absender:** Eine gültige Signatur wird nur dann ohne Warnung angezeigt, wenn der Schlüssel zur Absenderadresse gehört.
-  Abgelaufene oder widerrufene Schlüssel gelten nicht als gültig.
-- **Inline-PGP:** Text außerhalb des signierten/verschlüsselten Blocks wird sichtbar als ungeschützt markiert. Inline-Blöcke in Mails mit
-  HTML-Teilen werden nicht entschlüsselt (Schutz gegen EFAIL-artige Tricks).
-- **Bcc:** Bcc-Empfänger werden als versteckte Empfänger verschlüsselt; ihre Schlüssel-IDs sind für andere nicht sichtbar.
-- Die Erweiterung läuft in der Sandbox ohne Netzwerkzugriff; nur der Helper spricht mit `gpg`.
+## Security
+What the software does to protect you:
+- **Status kept apart from messages:** gpg writes status lines to a private file (`--status-file`), never mixed with text from messages.
+- **No option injection:** addresses and fingerprints are strictly validated before they are passed to `gpg`, and they come after `--`.
+- **Signature ≠ sender:** a valid signature is only shown without a warning if the key belongs to the sender address.
+  Expired or revoked keys are not treated as valid.
+- **Inline PGP:** text outside the signed/encrypted block is visibly marked as unprotected. Inline blocks in mails with
+  HTML parts are not decrypted (protection against EFAIL-style tricks).
+- **Bcc:** Bcc recipients are encrypted to as hidden recipients; their key IDs are not visible to others.
+- The extension runs sandboxed without network access; only the helper talks to `gpg`.
 
-Bekannte Grenzen:
-- **Betreff und Kopfzeilen sind nicht verschlüsselt** (keine „Protected Headers“).
-- Standard-Vertrauensmodell „allen Schlüsseln im Schlüsselbund vertrauen“: bequem, aber ein untergeschobener Schlüssel fällt nicht auf.
-  Mit „Web of Trust“ gilt gpgs Gültigkeitsprüfung.
-- WKD verrät der Empfänger-Domain, dass du an eine Adresse schreibst; per WKD gefundene Schlüssel werden ohne Rückfrage importiert.
-- Kein Audit durch Dritte. Sicherheitslücken bitte als GitHub-Issue oder vertraulich über „Security Advisories“ melden.
+Known limitations:
+- **Subject and headers are not encrypted** when sending (no "protected headers"). Header copies in received mails are hidden.
+- The default trust model "trust all keys in the keyring" is convenient, but a planted key goes unnoticed.
+  With "Web of Trust", gpg's validity check applies.
+- WKD tells the recipient's domain that you are writing to an address; keys found via WKD are imported without asking.
+- No third-party audit. Please report vulnerabilities as a GitHub issue or confidentially via "Security Advisories".
 
-## Einstellungen
-Gespeichert in `~/Library/Application Support/OpenPGPMail/config.json`: Zuordnung Adresse → Schlüssel, Sendeformat
-(automatisch oder immer PGP/MIME), Vertrauensmodell, WKD-Suche.
+## Settings
+Stored in `~/Library/Application Support/OpenPGPMail/config.json`: address → key mapping, send format
+(automatic or always PGP/MIME), trust model, WKD lookup.
 
-## Erkenntnisse zu Mail/MailKit
-- Mail übergibt Nachrichten mit **LF**-Zeilenenden. Gibt `encode` CRLF zurück, stürzt Mail ab (`-[__NSSetM addObject:]: object cannot be nil`
-  in `ComposeBackEndWK2`). Zeilenenden der Eingabe beibehalten.
-- Entschlüsselte Nachrichten müssen **einheitliche** Zeilenenden haben, sonst findet Mail keine Leerzeile zwischen Kopf und Text („kein Inhalt“).
-- `decodedMessage` wird auch mit **unvollständigen** Daten aufgerufen (Body noch nicht geladen). Dann `nil` zurückgeben, keinen Fehler –
-  Mail speichert Fehlerergebnisse zwischen.
-- Principal-Klasse und Handler dürfen nicht `@MainActor` sein (Mail ruft sie auf XPC-Threads auf).
-- **gpg-Versionen:** MacGPG2 wird vor Homebrew bevorzugt. Ein gpg 2.5 mit einem 2.2-Agent (oder umgekehrt) hat in einem Fall
-  „fehlerhafter geheimer Schlüssel“ bei importierten RSA-Schlüsseln verursacht.
-- Tests: `GNUPGHOME` muss kurz sein (Längenlimit für Unix-Sockets).
+## Notes on Mail/MailKit
+- Mail passes messages with **LF** line endings. If `encode` returns CRLF, Mail crashes (`-[__NSSetM addObject:]: object cannot be nil`
+  in `ComposeBackEndWK2`). Keep the line endings of the input.
+- Decrypted messages must have **consistent** line endings, otherwise Mail finds no blank line between header and body ("no content").
+- `decodedMessage` is also called with **incomplete** data (body not downloaded yet). Return `nil` then, not an error;
+  Mail caches error results.
+- The principal class and the handler must not be `@MainActor` (Mail calls them on XPC threads).
+- **gpg versions:** MacGPG2 is preferred over Homebrew. A gpg 2.5 with a 2.2 agent (or the reverse) caused
+  "bad secret key" for imported RSA keys in one case.
+- Tests: `GNUPGHOME` must be short (length limit for Unix sockets).
 
-## Lizenz und Abgrenzung
-MIT, siehe `LICENSE`. Dieses Projekt ist ein Neubau gegen MailKit und enthält keinen Code aus GPGMail oder Free-GPGMail.
-Es steht in keiner Verbindung zu GPGTools; „GPGMail“ und „GPG Suite“ sind deren Namen.
+## License and disclaimer
+MIT, see `LICENSE`. This project is a new implementation against MailKit and contains no code from GPGMail or Free-GPGMail.
+It is not affiliated with GPGTools; "GPGMail" and "GPG Suite" are their names.
